@@ -1,0 +1,6 @@
+# Request
+int8 state # 0 for RED, 1 for YELLOW, 2 for GREEN
+---
+# Response
+bool success
+string message

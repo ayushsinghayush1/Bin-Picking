@@ -1,0 +1,6 @@
+---
+# Response
+string barcode_data
+string timestamp
+bool success
+string message

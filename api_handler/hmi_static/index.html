@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bin Picking Cell HMI (Polling)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            color: #0056b3;
+        }
+        .status-section {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-item {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .status-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 180px; /* Adjust as needed for alignment */
+        }
+        .status-value {
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: white;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
+        }
+        /* Specific status colors */
+        .status-value.true, .status-value.open, .status-value.active, .status-value.green {
+            background-color: #28a745; /* Green for active/open/true */
+        }
+        .status-value.false, .status-value.closed, .status-value.inactive, .status-value.red {
+            background-color: #dc3545; /* Red for inactive/closed/false */
+        }
+        .status-value.yellow {
+            background-color: #ffc107; /* Yellow for warning/busy */
+        }
+        .status-value.unknown {
+            background-color: #6c757d; /* Grey for unknown/default */
+        }
+        .control-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+        .control-button:hover {
+            background-color: #0056b3;
+        }
+        .control-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .request-response {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            word-wrap: break-word; /* Break long words */
+            max-height: 200px; /* Limit height */
+            overflow-y: auto; /* Enable scrolling if content overflows */
+        }
+    </style>
+</head>
+<body>
+    <h1>Bin Picking Cell HMI (Polling)</h1>
+
+    <div class="status-section">
+        <h2>System Status</h2>
+        <div class="status-item">
+            <span class="status-label">Emergency Button:</span>
+            <span id="emergencyButtonStatus" class="status-value unknown">---</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Door Handle:</span>
+            <span id="doorHandleStatus" class="status-value unknown">---</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">System Busy:</span>
+            <span id="systemBusyStatus" class="status-value unknown">---</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Stack Light:</span>
+            <span id="stackLightStatus" class="status-value unknown">---</span>
+        </div>
+    </div>
+
+    <div class="status-section">
+        <h2>Controls</h2>
+        <button id="toggleEmergencyButton" class="control-button">Toggle Emergency Button</button>
+        <button id="toggleDoorHandle" class="control-button">Toggle Door Handle</button>
+        <button id="toggleSystemBusy" class="control-button">Toggle System Busy</button>
+        </div>
+
+    <div class="status-section">
+        <h2>Last Request & Response</h2>
+        <pre id="requestResponseLog" class="request-response"></pre>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const emergencyButtonStatus = document.getElementById('emergencyButtonStatus');
+        const doorHandleStatus = document.getElementById('doorHandleStatus');
+        const systemBusyStatus = document.getElementById('systemBusyStatus');
+        const stackLightStatus = document.getElementById('stackLightStatus');
+        const requestResponseLog = document.getElementById('requestResponseLog');
+
+        const toggleEmergencyButton = document.getElementById('toggleEmergencyButton');
+        const toggleDoorHandle = document.getElementById('toggleDoorHandle');
+        const toggleSystemBusy = document.getElementById('toggleSystemBusy');
+        // Removed Stack Light button variables
+        // const setStackLightGreen = document.getElementById('setStackLightGreen');
+        // const setStackLightYellow = document.getElementById('setStackLightYellow');
+        // const setStackLightRed = document.getElementById('setStackLightRed');
+
+        // Function to update status display
+        function updateStatusDisplay(element, value, type) {
+            element.textContent = value;
+            element.className = 'status-value'; // Reset classes
+
+            if (type === 'boolean') {
+                element.classList.add(value ? 'true' : 'false');
+            } else if (type === 'door') {
+                element.classList.add(value === 'OPEN' ? 'open' : 'closed');
+            } else if (type === 'emergency') {
+                element.classList.add(value === 'ACTIVE' ? 'active' : 'inactive');
+            } else if (type === 'busy') {
+                element.classList.add(value === 'BUSY' ? 'yellow' : 'green');
+            } else if (type === 'stack_light') {
+                let colorClass = 'unknown';
+                if (value.includes('GREEN')) colorClass = 'green';
+                else if (value.includes('YELLOW')) colorClass = 'yellow';
+                else if (value.includes('RED')) colorClass = 'red';
+                element.classList.add(colorClass);
+            }
+        }
+
+        // Function to fetch and update status
+        async function fetchAndUpdateStatus() {
+            try {
+                const response = await fetch('/get_status');
+                const data = await response.json();
+
+                // Update Emergency Button Status
+                updateStatusDisplay(emergencyButtonStatus, data.emergency_button_active ? 'ACTIVE' : 'INACTIVE', 'emergency');
+
+                // Update Door Handle Status
+                updateStatusDisplay(doorHandleStatus, data.door_state, 'door');
+
+                // Update System Busy Status
+                updateStatusDisplay(systemBusyStatus, data.system_busy ? 'BUSY' : 'READY', 'busy');
+
+                // Update Stack Light Status (based on its derived state from stack_light_node.py)
+                let stackLightText = '';
+                let stackLightValue = data.stack_light_status;
+                if (stackLightValue === 0) stackLightText = '0 (RED)';
+                else if (stackLightValue === 1) stackLightText = '1 (YELLOW)';
+                else if (stackLightValue === 2) stackLightText = '2 (GREEN)';
+                else stackLightText = `${stackLightValue} (UNKNOWN)`;
+                updateStatusDisplay(stackLightStatus, stackLightText, 'stack_light');
+
+                // Log the raw response for debugging
+                requestResponseLog.textContent = `Last Response:\n${JSON.stringify(data, null, 2)}`;
+
+            } catch (error) {
+                console.error('Error fetching status:', error);
+                requestResponseLog.textContent = `Error fetching status: ${error.message}`;
+            }
+        }
+
+        // Function to send command to Flask backend
+        async function sendCommand(endpoint) {
+            try {
+                const response = await fetch(endpoint, { method: 'POST' }); // Use POST for commands
+                const result = await response.json();
+                console.log('Command response:', result);
+                requestResponseLog.textContent = `Last Command Request: ${endpoint}\nLast Command Response:\n${JSON.stringify(result, null, 2)}`;
+                // After sending a command, immediately fetch new status to reflect changes
+                fetchAndUpdateStatus();
+            } catch (error) {
+                console.error('Error sending command:', error);
+                requestResponseLog.textContent = `Error sending command to ${endpoint}: ${error.message}`;
+            }
+        }
+
+        // Event Listeners for Buttons
+        toggleEmergencyButton.addEventListener('click', () => sendCommand('/toggle_emergency'));
+        toggleDoorHandle.addEventListener('click', () => sendCommand('/toggle_door'));
+        toggleSystemBusy.addEventListener('click', () => sendCommand('/toggle_busy'));
+        // Removed Stack Light button event listeners
+        // setStackLightGreen.addEventListener('click', () => sendCommand('/set_stack_light_green'));
+        // setStackLightYellow.addEventListener('click', () => sendCommand('/set_stack_light_yellow'));
+        // setStackLightRed.addEventListener('click', () => sendCommand('/set_stack_light_red'));
+
+        // Initial fetch and set up polling interval
+        fetchAndUpdateStatus();
+        setInterval(fetchAndUpdateStatus, 500); // Poll every half second
+    </script>
+</body>
+</html>
