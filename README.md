@@ -1,5 +1,7 @@
 # Bin Picking Cell Control System (ROS 2 & Web HMI)
 
+The video demonstration can be found [here](https://www.dropbox.com/scl/fi/u0yyr6tzd2orrmug49vvj/2025-05-23-12-54-48.mkv?rlkey=akjsjsnneyr3vrmv8gleusjx6&st=l6w8ogue&dl=0)
+
 ## 1. Overview
 
 This project implements a control system for a simulated Bin Picking Cell, integrating ROS 2 with a real-time web-based Human-Machine Interface (HMI). The system demonstrates core robotics concepts such as state management, inter-node communication (publishers, subscribers, services), and interaction with an external user interface.
